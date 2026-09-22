@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Status Checker</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f0f2f5; color: #333; padding: 20px; }
+        .app-container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { margin-bottom: 20px; font-size: 1.8rem; color: #1a73e8; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: 600; margin-bottom: 5px; }
+        input[type="number"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; }
+        button { width: 100%; padding: 12px; background-color: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; }
+        button:hover { background-color: #1557b0; }
+        
+        /* Health Status Result Styling */
+        .status-box { margin-top: 20px; padding: 15px; border-radius: 8px; font-weight: bold; display: none; }
+        .healthy { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .moderate { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .unhealthy { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        .logs-section { margin-top: 30px; }
+        .log-card { background: #f8f9fa; border-left: 4px solid #1a73e8; padding: 12px 15px; margin-bottom: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .log-details span { display: block; font-size: 0.9rem; color: #555; }
+        .log-details strong { font-size: 1rem; color: #111; }
+        .delete-btn { background: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; }
+        .delete-btn:hover { background: #bd2130; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <h1>Health Assessment Tracker</h1>
+    
+    <!-- Input Form -->
+    <form id="healthForm">
+        <div class="form-group">
+            <label for="water">Water Intake (Liters):</label>
+            <input type="number" id="water" step="0.1" placeholder="e.g., 2.5 (Target: 2.0+ L)" required>
+        </div>
+        <div class="form-group">
+            <label for="steps">Daily Steps:</label>
+            <input type="number" id="steps" placeholder="e.g., 8000 (Target: 8,000+ steps)" required>
+        </div>
+        <div class="form-group">
+            <label for="sleep">Sleep Duration (Hours):</label>
+            <input type="number" id="sleep" step="0.5" placeholder="e.g., 7.5 (Target: 7-9 hrs)" required>
+        </div>
+        <button type="submit">Evaluate & Save</button>
+    </form>
+
+    <!-- Assessment Output -->
+    <div id="statusBox" class="status-box"></div>
+
+    <!-- History Log -->
+    <div class="logs-section">
+        <h2>Logged Assessments</h2>
+        <div id="logsContainer" style="margin-top: 15px;"></div>
+    </div>
+</div>
+
+<script>
+    const form = document.getElementById('healthForm');
+    const statusBox = document.getElementById('statusBox');
+    const logsContainer = document.getElementById('logsContainer');
+
+    document.addEventListener('DOMContentLoaded', displayLogs);
+
+    // Health Evaluation Logic
+    function evaluateHealth(water, steps, sleep) {
+        let score = 0;
+        let tips = [];
+
+        // Water Assessment
+        if (water >= 2.0) { score++; } 
+        else { tips.push("Drink more water (at least 2L daily)"); }
+
+        // Steps Assessment
+        if (steps >= 8000) { score++; } 
+        else { tips.push("Increase physical activity (aim for 8,000+ steps)"); }
+
+        // Sleep Assessment
+        if (sleep >= 7 && sleep <= 9) { score++; } 
+        else { tips.push("Adjust sleep schedule (7 to 9 hours is optimal)"); }
+
+        // Determine Status based on total target points
+        let statusText = "";
+        let statusClass = "";
+
+        if (score === 3) {
+            statusText = "🟢 Overall Status: HEALTHY! All core daily health targets were met.";
+            statusClass = "healthy";
+        } else if (score === 2) {
+            statusText = "🟡 Overall Status: MODERATE. Good job, but room for improvement: " + tips.join(", ") + ".";
+            statusClass = "moderate";
+        } else {
+            statusText = "🔴 Overall Status: NEEDS IMPROVEMENT. Focus on these areas: " + tips.join(", ") + ".";
+            statusClass = "unhealthy";
+        }
+
+        return { statusText, statusClass };
+    }
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const water = parseFloat(document.getElementById('water').value);
+        const steps = parseInt(document.getElementById('steps').value);
+        const sleep = parseFloat(document.getElementById('sleep').value);
+
+        const evaluation = evaluateHealth(water, steps, sleep);
+
+        // Display Status Feedback
+        statusBox.textContent = evaluation.statusText;
+        statusBox.className = `status-box ${evaluation.statusClass}`;
+        statusBox.style.display = 'block';
+
+        // Create and Save Record
+        const newLog = {
+            id: Date.now(),
+            date: new Date().toLocaleDateString(),
+            water, steps, sleep,
+            status: evaluation.statusText,
+            statusClass: evaluation.statusClass
+        };
+
+        saveLog(newLog);
+        form.reset();
+        displayLogs();
+    });
+
+    function getLogs() {
+        return JSON.parse(localStorage.getItem('healthAssessmentLogs')) || [];
+    }
+
+    function saveLog(log) {
+        const logs = getLogs();
+        logs.unshift(log);
+        localStorage.setItem('healthAssessmentLogs', JSON.stringify(logs));
+    }
+
+    function deleteLog(id) {
+        let logs = getLogs();
+        logs = logs.filter(log => log.id !== id);
+        localStorage.setItem('healthAssessmentLogs', JSON.stringify(logs));
+        displayLogs();
+    }
+
+    function displayLogs() {
+        const logs = getLogs();
+        logsContainer.innerHTML = '';
+
+        if (logs.length === 0) {
+            logsContainer.innerHTML = '<p style="color: #777;">No health assessments recorded yet.</p>';
+            return;
+        }
+
+        logs.forEach(log => {
+            const card = document.createElement('div');
+            card.className = 'log-card';
+            card.innerHTML = `
+                <div class="log-details">
+                    <strong>${log.date}</strong>
+                    <span>💧 Water: ${log.water} L | 👟 Steps: ${log.steps} | 😴 Sleep: ${log.sleep} hrs</span>
+                    <span style="margin-top: 4px; font-weight: 600;">${log.status}</span>
+                </div>
+                <button class="delete-btn" onclick="deleteLog(${log.id})">Delete</button>
+            `;
+            logsContainer.appendChild(card);
+        });
+    }
+</script>
+
+</body>
+</html>
